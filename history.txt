@@ -11,3 +11,5 @@ cls
 clear;echo bro
 clear
 exit
+echo bro
+exit
