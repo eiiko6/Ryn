@@ -1,7 +1,7 @@
 use crate::shell::commands::execute_command;
 use crate::shell::config::load_config;
 use crate::shell::ctrlc_handler::setup_ctrlc_handler;
-use crate::shell::history::load_history;
+use crate::shell::history::{load_history, save_history, setup_history};
 use crate::shell::prompt::parse_prompt;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
@@ -12,7 +12,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     setup_ctrlc_handler();
 
     let mut rl = DefaultEditor::new()?;
-    load_history(&mut rl)?;
+    let history = setup_history()?;
+    load_history(&mut rl, &history)?;
 
     let config = load_config()?;
     let prompt = parse_prompt(config.prompt);
@@ -64,9 +65,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if let Err(err) = rl.save_history("history.txt") {
-        eprintln!("Failed to save history: {}", err);
-    }
+    save_history(&mut rl, &history)?;
 
     Ok(())
 }
