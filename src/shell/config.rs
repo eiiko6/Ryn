@@ -13,7 +13,6 @@ pub fn load_config() -> Result<Config, io::Error> {
                 .unwrap_or_else(|| panic!("Failed to convert config path to string"))
                 .to_string();
             path_string.push_str("/ryn/config");
-            println!("{path_string}");
             path_string
         }
         None => {
@@ -39,7 +38,7 @@ pub fn load_config() -> Result<Config, io::Error> {
         .unwrap_or("prompt = {user}@{home}> ");
 
     // Extract the prompt value
-    let prompt = prompt_line[9..].to_string();
+    let prompt = prompt_line[9..].trim_matches('"').to_string();
 
     // Return the Config struct
     Ok(Config { prompt })

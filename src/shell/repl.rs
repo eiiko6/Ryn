@@ -2,6 +2,7 @@ use crate::shell::commands::execute_command;
 use crate::shell::config::load_config;
 use crate::shell::ctrlc_handler::setup_ctrlc_handler;
 use crate::shell::history::load_history;
+use crate::shell::prompt::parse_prompt;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use std::env;
@@ -14,7 +15,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     load_history(&mut rl)?;
 
     let config = load_config()?;
-    let prompt = config.prompt;
+    let prompt = parse_prompt(config.prompt);
 
     loop {
         let readline = rl.readline(&prompt);
