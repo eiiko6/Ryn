@@ -1,7 +1,7 @@
 use crate::shell::commands::execute_command;
+use crate::shell::config::load_config;
 use crate::shell::ctrlc_handler::setup_ctrlc_handler;
 use crate::shell::history::load_history;
-use hostname::get as get_hostname;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use std::env;
@@ -13,14 +13,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let mut rl = DefaultEditor::new()?;
     load_history(&mut rl)?;
 
-    let username = env::var("USER").unwrap_or_else(|_| "user".to_string());
-    let hostname = get_hostname()
-        .unwrap_or_else(|_| "host".into())
-        .into_string()
-        .unwrap_or_else(|_| "host".to_string());
+    let config = load_config()?;
+    let prompt = config.prompt;
 
     loop {
-        let prompt = format!("{}@{}> ", username, hostname);
         let readline = rl.readline(&prompt);
         match readline {
             Ok(line) => {
@@ -34,6 +30,23 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
                 if args[0] == "exit" {
                     break;
+                }
+
+                if args[0] == "cd" {
+                    let new_dir = if let Some(path) = dirs::home_dir() {
+                        if let Some(p) = path.to_str() {
+                            p.to_string()
+                        } else {
+                            "/".to_string()
+                        }
+                    } else {
+                        "/".to_string()
+                    };
+
+                    if let Err(err) = env::set_current_dir(&new_dir) {
+                        eprintln!("cd: {}: {}", new_dir, err);
+                    }
+                    continue;
                 }
 
                 execute_command(&args);
