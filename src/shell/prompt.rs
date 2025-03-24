@@ -1,3 +1,4 @@
+use chrono::Local;
 use hostname::get as get_hostname;
 use std::collections::HashMap;
 use std::env;
@@ -28,6 +29,11 @@ pub fn parse_prompt(prompt_string: String) -> String {
     if prompt_string.contains("{git}") {
         let git_info = get_git_info().unwrap_or_else(|| "no-git".to_string());
         variables.insert("git", git_info);
+    }
+    if prompt_string.contains("{time24}") {
+        let now = Local::now();
+
+        variables.insert("time24", now.format("%H:%M:%S").to_string());
     }
 
     // Replace variables in prompt
