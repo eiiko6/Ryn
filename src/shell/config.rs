@@ -24,12 +24,7 @@ pub fn load_config() -> Result<Config, io::Error> {
     };
 
     // Try to read the config file
-    let contents = fs::read_to_string(&config_path).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("Failed to read config file: {}", e),
-        )
-    })?;
+    let contents = fs::read_to_string(&config_path).unwrap_or_default();
 
     // Try to find a line starting with "prompt = "
     let prompt_line = contents

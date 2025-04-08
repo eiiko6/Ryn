@@ -84,7 +84,10 @@ fn get_git_info() -> Option<String> {
             "✗"
         };
 
-        return Some(format!("{} ({}) {}", repo_name, branch_name, status_icon));
+        return Some(format!(
+            "{} on  {} [{}]",
+            repo_name, branch_name, status_icon
+        ));
     }
 
     None
