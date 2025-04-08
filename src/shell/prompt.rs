@@ -1,4 +1,5 @@
 use chrono::Local;
+use colored::Colorize;
 use hostname::get as get_hostname;
 use std::collections::HashMap;
 use std::env;
@@ -30,7 +31,10 @@ pub fn parse_prompt(prompt_string: String) -> String {
     if output.contains("{user}") {
         variables.insert(
             "user",
-            env::var("USER").unwrap_or_else(|_| "user".to_string()),
+            env::var("USER")
+                .unwrap_or_else(|_| "user".to_string())
+                .green()
+                .to_string(),
         );
     }
     if output.contains("{host}") {
@@ -38,7 +42,7 @@ pub fn parse_prompt(prompt_string: String) -> String {
             .unwrap_or_else(|_| "host".into())
             .into_string()
             .unwrap_or_else(|_| "host".to_string());
-        variables.insert("host", hostname);
+        variables.insert("host", hostname.blue().to_string());
     }
     if output.contains("{dir}") {
         if let Some(compact_dir) = get_dir() {
@@ -52,7 +56,13 @@ pub fn parse_prompt(prompt_string: String) -> String {
     if output.contains("{time24}") {
         let now = Local::now();
 
-        variables.insert("time24", now.format("%H:%M:%S").to_string());
+        variables.insert(
+            "time24",
+            now.format("%H:%M:%S")
+                .to_string()
+                .bright_yellow()
+                .to_string(),
+        );
     }
 
     // Replace variables in prompt
@@ -111,8 +121,10 @@ fn get_git_info() -> Option<String> {
         };
 
         return Some(format!(
-            "{} on  {} [{}]",
-            repo_name, branch_name, status_icon
+            "{} on {} {}",
+            repo_name.cyan(),
+            format!(" {}", branch_name).to_string().purple(),
+            format!("[{}]", status_icon).to_string().red()
         ));
     }
 
