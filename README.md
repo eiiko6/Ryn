@@ -17,9 +17,12 @@ Available variables:
 
 - `{user}`: username as in `whoami`
 - `{host}`: hostname as in `/etc/hostname`
-- `{dir}`: working directory as in `pwd`
+- `{dir}`: full working directory from /
 - `{git}`: repository and branch names, and status icon
 - `{time24}`: current time in **hh:mm:ss** 24-hour format
+
+- `{variable ifnotgit}`: uses the variable if not in a gir repo, empty otherwise
+  > example: `{dir ifnotgit}` will be `{dir}` if not in a git repo, and empty otherwise
 
 ## Features
 
