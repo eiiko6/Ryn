@@ -16,9 +16,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     load_history(&mut rl, &history)?;
 
     let config = load_config()?;
-    let prompt = parse_prompt(config.prompt);
+    let prompt_string = config.prompt;
 
     loop {
+        let prompt = parse_prompt(prompt_string.clone());
+
         let readline = rl.readline(&prompt);
         match readline {
             Ok(line) => {
@@ -35,7 +37,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
 
                 if args[0] == "cd" {
-                    let new_dir = if let Some(path) = dirs::home_dir() {
+                    let new_dir = if args.len() > 1 {
+                        args[1].to_string()
+                    } else if let Some(path) = dirs::home_dir() {
                         if let Some(p) = path.to_str() {
                             p.to_string()
                         } else {
