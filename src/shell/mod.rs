@@ -1,7 +1,8 @@
+mod builtin;
 mod commands;
 mod config;
-mod ctrlc_handler;
 mod history;
+mod parser;
 mod prompt;
 mod repl;
 

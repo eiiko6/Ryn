@@ -1,11 +1,11 @@
-use crate::shell::commands::execute_command;
 use crate::shell::config::load_config;
-use crate::shell::ctrlc_handler::setup_ctrlc_handler;
 use crate::shell::history::{load_history, save_history, setup_history};
+use crate::shell::parser::parse_and_execute;
 use crate::shell::prompt::parse_prompt;
+use std::io::{self, Write};
+
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
-use std::env;
 use std::error::Error;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
@@ -20,8 +20,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     loop {
         let prompt = parse_prompt(prompt_string.clone());
-
         let readline = rl.readline(&prompt);
+
         match readline {
             Ok(line) => {
                 let line = line.trim();
@@ -30,32 +30,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
 
                 rl.add_history_entry(line).ok();
-                let args = parse_input(line);
-
-                if args[0] == "exit" {
-                    break;
-                }
-
-                if args[0] == "cd" {
-                    let new_dir = if args.len() > 1 {
-                        args[1].to_string()
-                    } else if let Some(path) = dirs::home_dir() {
-                        if let Some(p) = path.to_str() {
-                            p.to_string()
-                        } else {
-                            "/".to_string()
-                        }
-                    } else {
-                        "/".to_string()
-                    };
-
-                    if let Err(err) = env::set_current_dir(&new_dir) {
-                        eprintln!("cd: {}: {}", new_dir, err);
+                if let Some(should_exit) = parse_and_execute(line) {
+                    if should_exit {
+                        break;
                     }
-                    continue;
                 }
-
-                execute_command(&args);
             }
             Err(ReadlineError::Interrupted) => continue,
             Err(ReadlineError::Eof) => {
@@ -70,43 +49,13 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     }
 
     save_history(&mut rl, &history)?;
-
     Ok(())
 }
 
-pub fn parse_input(input: &str) -> Vec<String> {
-    let mut result = Vec::new();
-    let mut current_token = String::new();
-    let mut inside_quotes = false;
-
-    for char in input.chars() {
-        match char {
-            '"' => {
-                if inside_quotes {
-                    result.push(current_token.clone());
-                    current_token.clear();
-                    inside_quotes = false;
-                } else {
-                    inside_quotes = true;
-                }
-            }
-            ' ' => {
-                if inside_quotes {
-                    current_token.push(char);
-                } else if !current_token.is_empty() {
-                    result.push(current_token.clone());
-                    current_token.clear();
-                }
-            }
-            _ => {
-                current_token.push(char);
-            }
-        }
-    }
-
-    if !current_token.is_empty() {
-        result.push(current_token);
-    }
-
-    result
+pub fn setup_ctrlc_handler() {
+    ctrlc::set_handler(move || {
+        print!("\nminimal-shell> ");
+        io::stdout().flush().unwrap();
+    })
+    .expect("Error setting Ctrl-C handler");
 }
