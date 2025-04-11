@@ -1,10 +1,15 @@
 use std::process::Command;
 
-pub fn execute_command(args: &[String]) {
+pub fn execute_command(args: &[String]) -> bool {
     if let Some((command, args)) = args.split_first() {
-        let status = Command::new(command).args(args).status();
-        if let Err(err) = status {
-            eprintln!("Error executing command: {}", err);
+        match Command::new(command).args(args).status() {
+            Ok(status) => status.success(),
+            Err(err) => {
+                eprintln!("Error executing command: {}", err);
+                false
+            }
         }
+    } else {
+        false
     }
 }
