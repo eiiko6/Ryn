@@ -3,6 +3,7 @@ use crate::shell::history::{load_history, save_history, setup_history};
 use crate::shell::parser::parse_and_execute;
 use crate::shell::prompt::parse_prompt;
 use std::io::{self, Write};
+use std::time::Instant;
 
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
@@ -18,8 +19,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let config = load_config()?;
     let prompt_string = config.prompt;
 
+    let mut last_duration = None;
+
     loop {
-        let prompt = parse_prompt(prompt_string.clone());
+        let prompt = parse_prompt(prompt_string.clone(), last_duration);
         let readline = rl.readline(&prompt);
 
         match readline {
@@ -30,11 +33,14 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
 
                 rl.add_history_entry(line).ok();
-                if let Some(should_exit) = parse_and_execute(line) {
-                    if should_exit {
-                        break;
-                    }
+
+                let start_time = Instant::now();
+
+                if parse_and_execute(line).unwrap() {
+                    break;
                 }
+
+                last_duration = Some(start_time.elapsed());
             }
             Err(ReadlineError::Interrupted) => continue,
             Err(ReadlineError::Eof) => {

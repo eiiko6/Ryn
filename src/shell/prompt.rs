@@ -1,11 +1,13 @@
 use chrono::Local;
 use colored::Colorize;
 use hostname::get as get_hostname;
+use humantime::format_duration;
 use std::collections::HashMap;
 use std::env;
 use std::process::Command;
+use std::time::Duration;
 
-pub fn parse_prompt(prompt_string: String) -> String {
+pub fn parse_prompt(prompt_string: String, time_taken: Option<Duration>) -> String {
     let mut variables = HashMap::new();
 
     let mut output = prompt_string.clone();
@@ -64,6 +66,23 @@ pub fn parse_prompt(prompt_string: String) -> String {
                 .to_string(),
         );
     }
+    if output.contains("{timetaken}") {
+        let duration_str = match time_taken {
+            Some(dur) => {
+                if dur < Duration::from_secs(1) {
+                    String::new()
+                } else {
+                    format_duration(Duration::new(dur.as_secs(), 0))
+                        .to_string()
+                        .yellow()
+                        .to_string()
+                }
+            }
+            None => String::default(),
+        };
+
+        variables.insert("timetaken", duration_str);
+    }
 
     // Replace variables in prompt
     for (key, value) in variables.iter() {
@@ -71,7 +90,7 @@ pub fn parse_prompt(prompt_string: String) -> String {
         output = output.replace(&format!("{{{}}}", key), value);
     }
 
-    output.trim_start().to_string()
+    output.trim_start().replace("  ", " ").to_string()
 }
 
 // Function to get directory
