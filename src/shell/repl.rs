@@ -36,8 +36,16 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
                 let start_time = Instant::now();
 
-                if parse_and_execute(line).unwrap() {
-                    break;
+                match parse_and_execute(line) {
+                    Ok(value) => {
+                        if value {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        println!("{}", e);
+                        continue;
+                    }
                 }
 
                 last_duration = Some(start_time.elapsed());

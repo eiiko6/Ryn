@@ -1,5 +1,6 @@
 use crate::shell::builtin::handle_builtin;
 use crate::shell::commands::execute_command;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum CommandExpr {
@@ -27,23 +28,41 @@ struct EvalResult {
     should_exit: bool,
 }
 
-pub fn parse_and_execute(input: &str) -> Option<bool> {
+pub enum ParseError {
+    UnexpectedOperator(String),
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ParseError::UnexpectedOperator(ref op) => {
+                write!(f, "syntax error: unexpected '{}'", op)
+            }
+        }
+    }
+}
+
+pub fn parse_and_execute(input: &str) -> Result<bool, ParseError> {
     if input.trim().is_empty() {
-        return Some(false);
+        return Ok(false);
     }
 
     let mut tokens = tokenize(input)?;
 
     let expr = parse_expr(&mut tokens)?;
 
-    if let Some(EvalResult {success: _, should_exit}) = eval_expr(expr) {
-        return Some(should_exit);
+    if let Some(EvalResult {
+        success: _,
+        should_exit,
+    }) = eval_expr(expr)
+    {
+        return Ok(should_exit);
     }
 
-    Some(false)
+    Ok(false)
 }
 
-fn tokenize(input: &str) -> Option<Vec<String>> {
+fn tokenize(input: &str) -> Result<Vec<String>, ParseError> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     let mut in_double_quotes = false;
@@ -94,10 +113,10 @@ fn tokenize(input: &str) -> Option<Vec<String>> {
         tokens.push(current);
     }
 
-    Some(tokens)
+    Ok(tokens)
 }
 
-fn parse_expr(tokens: &mut Vec<String>) -> Option<CommandExpr> {
+fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
     let mut exprs: Vec<CommandExpr> = Vec::new();
     while !tokens.is_empty() {
         let token = tokens.remove(0);
@@ -105,14 +124,22 @@ fn parse_expr(tokens: &mut Vec<String>) -> Option<CommandExpr> {
         match token.as_str() {
             ";" => {
                 continue;
-            },
+            }
             "&&" => {
+                if exprs.is_empty() {
+                    return Err(ParseError::UnexpectedOperator("&&".to_string()));
+                }
+                let lhs = exprs.pop().unwrap();
                 let rhs = parse_expr(tokens)?;
-                return Some(CommandExpr::And(Box::new(exprs.pop()?), Box::new(rhs)));
+                return Ok(CommandExpr::And(Box::new(lhs), Box::new(rhs)));
             }
             "||" => {
+                if exprs.is_empty() {
+                    return Err(ParseError::UnexpectedOperator("||".to_string()));
+                }
+                let lhs = exprs.pop().unwrap();
                 let rhs = parse_expr(tokens)?;
-                return Some(CommandExpr::Or(Box::new(exprs.pop()?), Box::new(rhs)));
+                return Ok(CommandExpr::Or(Box::new(lhs), Box::new(rhs)));
             }
             _ => {
                 let mut cmd = vec![token];
@@ -125,9 +152,9 @@ fn parse_expr(tokens: &mut Vec<String>) -> Option<CommandExpr> {
     }
 
     if exprs.len() == 1 {
-        Some(exprs.remove(0))
+        Ok(exprs.remove(0))
     } else {
-        Some(CommandExpr::Sequence(exprs))
+        Ok(CommandExpr::Sequence(exprs))
     }
 }
 
@@ -136,36 +163,66 @@ fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
         CommandExpr::Command(args) => {
             // Check if it's a built-in command
             if let Some(builtin) = handle_builtin(&args) {
-                return Some(EvalResult {success: true, should_exit: builtin});
+                return Some(EvalResult {
+                    success: true,
+                    should_exit: builtin,
+                });
             }
 
             // Execute external command
             let success = execute_command(&args);
-            Some(EvalResult {success, should_exit: false})
+            Some(EvalResult {
+                success,
+                should_exit: false,
+            })
         }
         CommandExpr::Sequence(exprs) => {
             let mut success = true;
             for expr in exprs {
-                if let Some(EvalResult { success: s, should_exit }) = eval_expr(expr) {
+                if let Some(EvalResult {
+                    success: s,
+                    should_exit,
+                }) = eval_expr(expr)
+                {
                     if !s {
                         success = false; // If any command fails, the whole sequence is considered failed
                     }
                     if should_exit {
-                        return Some(EvalResult { success: s, should_exit: true }); // Exit early if any command indicates it
+                        return Some(EvalResult {
+                            success: s,
+                            should_exit: true,
+                        }); // Exit early if any command indicates it
                     }
                 }
             }
-            Some(EvalResult { success, should_exit: false })
+            Some(EvalResult {
+                success,
+                should_exit: false,
+            })
         }
         CommandExpr::And(lhs, rhs) => {
-            if let Some(EvalResult { success: false, should_exit: false }) = eval_expr(*lhs) {
-                return Some(EvalResult { success: false, should_exit: false });
+            if let Some(EvalResult {
+                success: false,
+                should_exit: false,
+            }) = eval_expr(*lhs)
+            {
+                return Some(EvalResult {
+                    success: false,
+                    should_exit: false,
+                });
             }
             eval_expr(*rhs)
         }
         CommandExpr::Or(lhs, rhs) => {
-            if let Some(EvalResult { success: true, should_exit: false }) = eval_expr(*lhs) {
-                return Some(EvalResult { success: true, should_exit: false });
+            if let Some(EvalResult {
+                success: true,
+                should_exit: false,
+            }) = eval_expr(*lhs)
+            {
+                return Some(EvalResult {
+                    success: true,
+                    should_exit: false,
+                });
             }
             eval_expr(*rhs)
         }

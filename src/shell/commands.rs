@@ -5,7 +5,7 @@ pub fn execute_command(args: &[String]) -> bool {
         match Command::new(command).args(args).status() {
             Ok(status) => status.success(),
             Err(err) => {
-                eprintln!("Error executing command: {}", err);
+                eprintln!("error executing command: {}", err);
                 false
             }
         }
