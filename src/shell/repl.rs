@@ -6,13 +6,16 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 use rustyline::DefaultEditor;
+use rustyline::config::{ColorMode, Config};
 use rustyline::error::ReadlineError;
 use std::error::Error;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     setup_ctrlc_handler();
 
-    let mut rl = DefaultEditor::new()?;
+    let config = Config::builder().color_mode(ColorMode::Forced).build();
+    let mut rl = DefaultEditor::with_config(config)?;
+
     let history = setup_history()?;
     load_history(&mut rl, &history)?;
 
@@ -23,6 +26,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     loop {
         let prompt = parse_prompt(prompt_string.clone(), last_duration);
+        // eprintln!(">> Prompt raw: {:?}", prompt);
         let readline = rl.readline(&prompt);
 
         match readline {

@@ -15,9 +15,29 @@ pub enum CommandExpr {
     Command(Vec<String>), // basic command + args
 }
 
+#[cfg(windows)]
+fn is_builtin(cmd: &str) -> bool {
+    matches!(
+        cmd,
+        "echo" | "dir" | "cd" | "cls" | "set" | "pause" | "type"
+    )
+}
+
 pub fn execute_command(args: &[String]) -> bool {
-    if let Some((command, args)) = args.split_first() {
-        match Command::new(command).args(args).status() {
+    if let Some((command, rest)) = args.split_first() {
+        #[cfg(windows)]
+        let result = if is_builtin(command) {
+            let mut full = vec![command.clone()];
+            full.extend(rest.iter().cloned());
+            Command::new("cmd").arg("/C").args(&full).status()
+        } else {
+            Command::new(command).args(rest).status()
+        };
+
+        #[cfg(not(windows))]
+        let result = Command::new(command).args(rest).status();
+
+        match result {
             Ok(status) => status.success(),
             Err(err) => {
                 eprintln!("error executing command: {}", err);
@@ -43,7 +63,27 @@ pub fn spawn_command(
         ));
     }
 
-    let (command, cmd_args) = args.split_first().unwrap();
+    #[cfg(windows)]
+    let (command, cmd_args): (&str, Vec<String>) = {
+        let (c, rest) = args.split_first().unwrap();
+        if is_builtin(c) {
+            let mut cmdline = vec![c.clone()];
+            cmdline.extend(rest.iter().cloned());
+            (
+                "cmd",
+                vec!["/C".into()].into_iter().chain(cmdline).collect(),
+            )
+        } else {
+            (c.as_str(), rest.iter().cloned().collect())
+        }
+    };
+
+    #[cfg(not(windows))]
+    let (command, cmd_args): (&str, Vec<String>) = {
+        let (c, rest) = args.split_first().unwrap();
+        (c.as_str(), rest.iter().cloned().collect())
+    };
+
     let mut cmd = Command::new(command);
     cmd.args(cmd_args).stdin(stdin).stdout(stdout);
 
