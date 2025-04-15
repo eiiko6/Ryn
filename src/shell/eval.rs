@@ -1,5 +1,7 @@
 use crate::shell::builtin::handle_builtin;
-use crate::shell::command::{execute_command, CommandExpr};
+use crate::shell::command::{CommandExpr, execute_command, spawn_command};
+use os_pipe::{PipeReader, pipe};
+use std::process::Stdio;
 
 pub struct EvalResult {
     pub success: bool,
@@ -74,9 +76,57 @@ pub fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
             }
             eval_expr(*rhs)
         }
-        CommandExpr::Pipeline(_pipeline) => {
-            println!("pipeline executed");
-            Option::None
+        CommandExpr::Pipeline(cmds) => {
+            let mut processes = Vec::new();
+            let mut prev_reader: Option<PipeReader> = None;
+
+            for (i, expr) in cmds.iter().enumerate() {
+                let args = if let CommandExpr::Command(args) = expr {
+                    args
+                } else {
+                    return Some(EvalResult {
+                        success: false,
+                        should_exit: false,
+                    });
+                };
+
+                let stdin = if let Some(reader) = prev_reader.take() {
+                    Stdio::from(reader)
+                } else {
+                    Stdio::inherit()
+                };
+
+                let stdout = if i < cmds.len() - 1 {
+                    let (reader, writer) = pipe().unwrap();
+                    prev_reader = Some(reader);
+                    Stdio::from(writer)
+                } else {
+                    Stdio::inherit()
+                };
+
+                match spawn_command(args, stdin, stdout, None) {
+                    Ok(child) => processes.push(child),
+                    Err(err) => {
+                        eprintln!("Failed to spawn command '{}': {}", args[0], err);
+                        return Some(EvalResult {
+                            success: false,
+                            should_exit: false,
+                        });
+                    }
+                }
+            }
+
+            let mut success = true;
+            for mut child in processes {
+                if !child.wait().map(|s| s.success()).unwrap_or(false) {
+                    success = false;
+                }
+            }
+
+            Some(EvalResult {
+                success,
+                should_exit: false,
+            })
         }
     }
 }

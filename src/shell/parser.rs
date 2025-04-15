@@ -1,6 +1,6 @@
-use std::fmt;
 use crate::shell::command::CommandExpr;
 use crate::shell::eval::{EvalResult, eval_expr};
+use std::fmt;
 
 pub enum ParseError {
     UnexpectedOperator(String),
@@ -91,70 +91,77 @@ fn tokenize(input: &str) -> Result<Vec<String>, ParseError> {
 }
 
 fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
-    let mut exprs: Vec<CommandExpr> = Vec::new();
-    while !tokens.is_empty() {
-        let token = tokens.remove(0);
+    let mut lhs = parse_simple_expr(tokens)?;
 
-        for t in tokens.iter() {
-            println!("!-> {}", t);
-        }
+    while let Some(op) = tokens.first() {
+        match op.as_str() {
+            "&&" | "||" => {
+                let op = tokens.remove(0); // consume the operator
+                let rhs = parse_expr(tokens)?; // recursively parse the right side
 
-        match token.as_str() {
+                lhs = match op.as_str() {
+                    "&&" => CommandExpr::And(Box::new(lhs), Box::new(rhs)),
+                    "||" => CommandExpr::Or(Box::new(lhs), Box::new(rhs)),
+                    _ => unreachable!(),
+                };
+            }
             ";" => {
-                continue;
-            }
-            "&&" => {
-                if exprs.is_empty() {
-                    return Err(ParseError::UnexpectedOperator("&&".to_string()));
-                }
-                let lhs = exprs.pop().unwrap();
+                tokens.remove(0); // consume ;
                 let rhs = parse_expr(tokens)?;
-                return Ok(CommandExpr::And(Box::new(lhs), Box::new(rhs)));
+                lhs = CommandExpr::Sequence(vec![lhs, rhs]);
             }
-            "||" => {
-                if exprs.is_empty() {
-                    return Err(ParseError::UnexpectedOperator("||".to_string()));
-                }
-                let lhs = exprs.pop().unwrap();
-                let rhs = parse_expr(tokens)?;
-                return Ok(CommandExpr::Or(Box::new(lhs), Box::new(rhs)));
-            }
-            "|" => {
-                println!("Pipe detected!");
-                if exprs.is_empty() {
-                    return Err(ParseError::UnexpectedOperator("|".to_string()));
-                }
-                let mut pipeline = vec![exprs.pop().unwrap()];
-                while !tokens.is_empty() {
-                    for t in tokens.iter() {
-                        println!("#-> {}", t);
-                    }
-
-                    let next = parse_expr(tokens)?;
-                    pipeline.push(next);
-
-                    // if another | follows, continue; else break
-                    if tokens.first().map(String::as_str) != Some("|") {
-                        break;
-                    } else {
-                        tokens.remove(0); // consume "|"
-                    }
-                }
-                return Ok(CommandExpr::Pipeline(pipeline));
-            }
-            _ => {
-                let mut cmd = vec![token];
-                while !tokens.is_empty() && ![";", "&&", "||", "|"].contains(&tokens[0].as_str()) {
-                    cmd.push(tokens.remove(0));
-                }
-                exprs.push(CommandExpr::Command(cmd));
-            }
+            _ => break,
         }
     }
 
-    if exprs.len() == 1 {
-        Ok(exprs.remove(0))
+    Ok(lhs)
+}
+
+fn parse_simple_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
+    if tokens.is_empty() {
+        return Err(ParseError::UnexpectedOperator("empty".to_string()));
+    }
+
+    let mut pipeline = Vec::new();
+
+    // First command
+    let mut cmd = Vec::new();
+    while !tokens.is_empty() && !["|", "&&", "||", ";"].contains(&tokens[0].as_str()) {
+        cmd.push(tokens.remove(0));
+    }
+
+    if cmd.is_empty() {
+        return Err(ParseError::UnexpectedOperator(
+            "expected command".to_string(),
+        ));
+    }
+
+    pipeline.push(CommandExpr::Command(cmd));
+
+    // If there are pipes, collect all commands in the pipeline
+    while let Some(tok) = tokens.first() {
+        if tok == "|" {
+            tokens.remove(0); // consume the pipe
+            let mut next_cmd = Vec::new();
+            while !tokens.is_empty() && !["|", "&&", "||", ";"].contains(&tokens[0].as_str()) {
+                next_cmd.push(tokens.remove(0));
+            }
+
+            if next_cmd.is_empty() {
+                return Err(ParseError::UnexpectedOperator(
+                    "expected command after |".to_string(),
+                ));
+            }
+
+            pipeline.push(CommandExpr::Command(next_cmd));
+        } else {
+            break;
+        }
+    }
+
+    if pipeline.len() == 1 {
+        Ok(pipeline.pop().unwrap())
     } else {
-        Ok(CommandExpr::Sequence(exprs))
+        Ok(CommandExpr::Pipeline(pipeline))
     }
 }

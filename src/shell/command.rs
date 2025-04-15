@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[derive(Debug)]
 pub enum CommandExpr {
@@ -27,4 +27,29 @@ pub fn execute_command(args: &[String]) -> bool {
     } else {
         false
     }
+}
+
+pub fn spawn_command(
+    args: &[String],
+    stdin: Stdio,
+    stdout: Stdio,
+    stderr: Option<Stdio>,
+) -> Result<std::process::Child, std::io::Error> {
+    if args.is_empty() {
+        eprintln!("error: Attempted to spawn an empty command.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Empty command",
+        ));
+    }
+
+    let (command, cmd_args) = args.split_first().unwrap();
+    let mut cmd = Command::new(command);
+    cmd.args(cmd_args).stdin(stdin).stdout(stdout);
+
+    if let Some(err) = stderr {
+        cmd.stderr(err);
+    }
+
+    cmd.spawn()
 }
