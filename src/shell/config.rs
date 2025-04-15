@@ -30,7 +30,7 @@ pub fn load_config() -> Result<Config, io::Error> {
     let prompt_line = contents
         .lines()
         .find(|line| line.starts_with("prompt = "))
-        .unwrap_or("prompt = {user}@{home}> ");
+        .unwrap_or("{time24} {user ifnotgit} {host ifnotgit}{git} > "); // Default prompt
 
     // Extract the prompt value
     let prompt = prompt_line[9..].trim_matches('"').to_string();

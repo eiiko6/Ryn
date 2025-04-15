@@ -14,7 +14,7 @@ pub fn parse_prompt(prompt_string: String, time_taken: Option<Duration>) -> Stri
 
     // Replace ifnotgit variables
     if prompt_string.contains("ifnotgit") {
-        let valid_keys = ["user", "host", "dir", "time24"];
+        let valid_keys = ["user", "host", "dir", "time24", "timetaken", "compactdir"];
 
         for key in valid_keys {
             let placeholder_ifnotgit = format!("{{{} ifnotgit}}", key);
@@ -47,8 +47,20 @@ pub fn parse_prompt(prompt_string: String, time_taken: Option<Duration>) -> Stri
         variables.insert("host", hostname.blue().to_string());
     }
     if output.contains("{dir}") {
-        if let Some(compact_dir) = get_dir() {
-            variables.insert("dir", compact_dir);
+        if let Some(dir_string) = get_dir() {
+            variables.insert("dir", dir_string);
+        }
+    }
+    if output.contains("{compactdir}") {
+        if let Some(dir_string) = get_dir() {
+            variables.insert(
+                "compactdir",
+                dir_string
+                    .split('/')
+                    .filter_map(|s| s.get(..1))
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            );
         }
     }
     if output.contains("{git}") {
