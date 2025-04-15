@@ -1,32 +1,6 @@
-use crate::shell::builtin::handle_builtin;
-use crate::shell::commands::execute_command;
 use std::fmt;
-
-#[derive(Debug)]
-pub enum CommandExpr {
-    Sequence(Vec<CommandExpr>), // a ; b ; c
-    // Pipeline(Vec<CommandExpr>),              // a | b | c
-    And(Box<CommandExpr>, Box<CommandExpr>), // a && b
-    Or(Box<CommandExpr>, Box<CommandExpr>),  // a || b
-    // Redirect {
-    //     command: Box<CommandExpr>,
-    //     kind: RedirectKind,
-    //     target: String,
-    // },
-    // Background(Box<CommandExpr>), // a &
-    Command(Vec<String>), // basic command + args
-}
-
-// pub enum RedirectKind {
-//     Output, // >
-//     Append, // >>
-//     Input,  // <
-// }
-
-struct EvalResult {
-    success: bool,
-    should_exit: bool,
-}
+use crate::shell::command::CommandExpr;
+use crate::shell::eval::{EvalResult, eval_expr};
 
 pub enum ParseError {
     UnexpectedOperator(String),
@@ -121,6 +95,10 @@ fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
     while !tokens.is_empty() {
         let token = tokens.remove(0);
 
+        for t in tokens.iter() {
+            println!("!-> {}", t);
+        }
+
         match token.as_str() {
             ";" => {
                 continue;
@@ -141,9 +119,32 @@ fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
                 let rhs = parse_expr(tokens)?;
                 return Ok(CommandExpr::Or(Box::new(lhs), Box::new(rhs)));
             }
+            "|" => {
+                println!("Pipe detected!");
+                if exprs.is_empty() {
+                    return Err(ParseError::UnexpectedOperator("|".to_string()));
+                }
+                let mut pipeline = vec![exprs.pop().unwrap()];
+                while !tokens.is_empty() {
+                    for t in tokens.iter() {
+                        println!("#-> {}", t);
+                    }
+
+                    let next = parse_expr(tokens)?;
+                    pipeline.push(next);
+
+                    // if another | follows, continue; else break
+                    if tokens.first().map(String::as_str) != Some("|") {
+                        break;
+                    } else {
+                        tokens.remove(0); // consume "|"
+                    }
+                }
+                return Ok(CommandExpr::Pipeline(pipeline));
+            }
             _ => {
                 let mut cmd = vec![token];
-                while !tokens.is_empty() && ![";", "&&", "||"].contains(&tokens[0].as_str()) {
+                while !tokens.is_empty() && ![";", "&&", "||", "|"].contains(&tokens[0].as_str()) {
                     cmd.push(tokens.remove(0));
                 }
                 exprs.push(CommandExpr::Command(cmd));
@@ -155,76 +156,5 @@ fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
         Ok(exprs.remove(0))
     } else {
         Ok(CommandExpr::Sequence(exprs))
-    }
-}
-
-fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
-    match expr {
-        CommandExpr::Command(args) => {
-            // Check if it's a built-in command
-            if let Some(builtin) = handle_builtin(&args) {
-                return Some(EvalResult {
-                    success: true,
-                    should_exit: builtin,
-                });
-            }
-
-            // Execute external command
-            let success = execute_command(&args);
-            Some(EvalResult {
-                success,
-                should_exit: false,
-            })
-        }
-        CommandExpr::Sequence(exprs) => {
-            let mut success = true;
-            for expr in exprs {
-                if let Some(EvalResult {
-                    success: s,
-                    should_exit,
-                }) = eval_expr(expr)
-                {
-                    if !s {
-                        success = false; // If any command fails, the whole sequence is considered failed
-                    }
-                    if should_exit {
-                        return Some(EvalResult {
-                            success: s,
-                            should_exit: true,
-                        }); // Exit early if any command indicates it
-                    }
-                }
-            }
-            Some(EvalResult {
-                success,
-                should_exit: false,
-            })
-        }
-        CommandExpr::And(lhs, rhs) => {
-            if let Some(EvalResult {
-                success: false,
-                should_exit: false,
-            }) = eval_expr(*lhs)
-            {
-                return Some(EvalResult {
-                    success: false,
-                    should_exit: false,
-                });
-            }
-            eval_expr(*rhs)
-        }
-        CommandExpr::Or(lhs, rhs) => {
-            if let Some(EvalResult {
-                success: true,
-                should_exit: false,
-            }) = eval_expr(*lhs)
-            {
-                return Some(EvalResult {
-                    success: true,
-                    should_exit: false,
-                });
-            }
-            eval_expr(*rhs)
-        }
     }
 }
