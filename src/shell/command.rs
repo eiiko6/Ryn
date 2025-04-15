@@ -74,14 +74,14 @@ pub fn spawn_command(
                 vec!["/C".into()].into_iter().chain(cmdline).collect(),
             )
         } else {
-            (c.as_str(), rest.iter().cloned().collect())
+            (c.as_str(), rest.to_vec())
         }
     };
 
     #[cfg(not(windows))]
     let (command, cmd_args): (&str, Vec<String>) = {
         let (c, rest) = args.split_first().unwrap();
-        (c.as_str(), rest.iter().cloned().collect())
+        (c.as_str(), rest.to_vec())
     };
 
     let mut cmd = Command::new(command);

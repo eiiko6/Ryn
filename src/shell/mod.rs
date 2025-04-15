@@ -1,9 +1,9 @@
 mod builtin;
 mod command;
 mod config;
+mod eval;
 mod history;
 mod parser;
-mod eval;
 mod prompt;
 mod repl;
 
