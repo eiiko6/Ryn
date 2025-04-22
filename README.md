@@ -11,6 +11,8 @@ For now it only supports interactive use.
 - [x] Command sequences (`a ; b`)
 - [x] And, Or (`a && b`, `a || b`)
 - [x] Pipes (`a | b | c`)
+- [x] Changing the cursor
+- [x] Aliases
 
 ## Installation
 
@@ -50,3 +52,26 @@ Available variables:
 
 - `{variable ifnotgit}`: uses the variable if not in a gir repo, empty otherwise
   > example: `{dir ifnotgit}` will be `{dir}` if not in a git repo, and empty otherwise
+
+### Cursor
+
+```conf
+cursor = blinkingbar
+```
+
+Available cursors:
+
+- blinkingblock
+- steadyblock
+- blinkingunderline
+- steadyunderline
+- blinkingbar
+- steadybar
+
+### Aliases
+
+```conf
+alias foo = "echo bar"
+```
+
+With this, using `foo` will echo `bar`.

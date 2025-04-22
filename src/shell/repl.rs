@@ -43,7 +43,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
                 let start_time = Instant::now();
 
-                match parse_and_execute(line) {
+                match parse_and_execute(line, &config.aliases) {
                     Ok(value) => {
                         if value {
                             break;

@@ -1,4 +1,5 @@
 use colored::*;
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use std::{fs, io};
@@ -6,6 +7,7 @@ use std::{fs, io};
 pub struct Config {
     pub prompt: String,
     pub cursor: CursorStyle,
+    pub aliases: HashMap<String, String>,
 }
 
 pub enum CursorStyle {
@@ -35,6 +37,7 @@ impl Default for Config {
         Self {
             prompt: "{time24} {user ifnotgit} {host ifnotgit}{git} > ".into(),
             cursor: CursorStyle::BlinkingBar,
+            aliases: HashMap::new(),
         }
     }
 }
@@ -113,6 +116,15 @@ pub fn load_config() -> Result<Config, io::Error> {
 
         let key = parts[0].trim();
         let value = parts[1].trim().trim_matches('"');
+
+        if key.starts_with("alias") {
+            let alias_parts: (&str, &str) =
+                (key.split_once(" ").unwrap_or_default().1.trim(), value);
+            let alias_key = alias_parts.0.trim().to_string();
+            let alias_value = alias_parts.1.trim().to_string();
+            config.aliases.insert(alias_key, alias_value);
+            continue;
+        }
 
         match key {
             "prompt" => config.prompt = value.to_string(),

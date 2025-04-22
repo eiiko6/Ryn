@@ -1,5 +1,6 @@
 use crate::shell::command::CommandExpr;
 use crate::shell::eval::{EvalResult, eval_expr};
+use std::collections::HashMap;
 use std::fmt;
 
 pub enum ParseError {
@@ -16,14 +17,17 @@ impl fmt::Display for ParseError {
     }
 }
 
-pub fn parse_and_execute(input: &str) -> Result<bool, ParseError> {
+pub fn parse_and_execute(
+    input: &str,
+    aliases: &HashMap<String, String>,
+) -> Result<bool, ParseError> {
     if input.trim().is_empty() {
         return Ok(false);
     }
 
     let mut tokens = tokenize(input)?;
 
-    let expr = parse_expr(&mut tokens)?;
+    let expr = parse_expr(&mut tokens, aliases)?;
 
     if let Some(EvalResult {
         success: _,
@@ -90,15 +94,17 @@ fn tokenize(input: &str) -> Result<Vec<String>, ParseError> {
     Ok(tokens)
 }
 
-fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
-    let mut lhs = parse_simple_expr(tokens)?;
+fn parse_expr(
+    tokens: &mut Vec<String>,
+    aliases: &HashMap<String, String>,
+) -> Result<CommandExpr, ParseError> {
+    let mut lhs = parse_simple_expr(tokens, aliases)?;
 
     while let Some(op) = tokens.first() {
         match op.as_str() {
             "&&" | "||" => {
-                let op = tokens.remove(0); // consume the operator
-                let rhs = parse_expr(tokens)?; // recursively parse the right side
-
+                let op = tokens.remove(0);
+                let rhs = parse_expr(tokens, aliases)?;
                 lhs = match op.as_str() {
                     "&&" => CommandExpr::And(Box::new(lhs), Box::new(rhs)),
                     "||" => CommandExpr::Or(Box::new(lhs), Box::new(rhs)),
@@ -106,8 +112,8 @@ fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
                 };
             }
             ";" => {
-                tokens.remove(0); // consume ;
-                let rhs = parse_expr(tokens)?;
+                tokens.remove(0);
+                let rhs = parse_expr(tokens, aliases)?;
                 lhs = CommandExpr::Sequence(vec![lhs, rhs]);
             }
             _ => break,
@@ -117,7 +123,10 @@ fn parse_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
     Ok(lhs)
 }
 
-fn parse_simple_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError> {
+fn parse_simple_expr(
+    tokens: &mut Vec<String>,
+    aliases: &HashMap<String, String>,
+) -> Result<CommandExpr, ParseError> {
     if tokens.is_empty() {
         return Err(ParseError::UnexpectedOperator("empty".to_string()));
     }
@@ -136,6 +145,14 @@ fn parse_simple_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError
         ));
     }
 
+    // Replace alias if first word is in alias map
+    if let Some(replacement) = aliases.get(&cmd[0]) {
+        cmd = replacement
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+    }
+
     pipeline.push(CommandExpr::Command(cmd));
 
     // If there are pipes, collect all commands in the pipeline
@@ -151,6 +168,14 @@ fn parse_simple_expr(tokens: &mut Vec<String>) -> Result<CommandExpr, ParseError
                 return Err(ParseError::UnexpectedOperator(
                     "expected command after |".to_string(),
                 ));
+            }
+
+            // Replace alias for piped command
+            if let Some(replacement) = aliases.get(&next_cmd[0]) {
+                next_cmd = replacement
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect();
             }
 
             pipeline.push(CommandExpr::Command(next_cmd));
