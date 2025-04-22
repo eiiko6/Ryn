@@ -26,7 +26,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     loop {
         let prompt = parse_prompt(prompt_string.clone(), last_duration);
-        // eprintln!(">> Prompt raw: {:?}", prompt);
+
+        print!("{}", config.cursor.to_ansi_code());
+        io::stdout().flush().unwrap();
+
         let readline = rl.readline(&prompt);
 
         match readline {
