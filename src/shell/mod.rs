@@ -1,5 +1,6 @@
 mod builtin;
 mod command;
+mod completion;
 mod config;
 mod eval;
 mod history;

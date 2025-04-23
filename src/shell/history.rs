@@ -1,4 +1,5 @@
-use rustyline::DefaultEditor;
+use rustyline::Editor;
+use rustyline::history::FileHistory;
 use std::error::Error;
 use std::fs;
 use std::fs::OpenOptions;
@@ -27,7 +28,13 @@ pub fn setup_history() -> Result<HistorySetup, Box<dyn Error>> {
     }
 }
 
-pub fn load_history(rl: &mut DefaultEditor, history: &HistorySetup) -> Result<(), Box<dyn Error>> {
+pub fn load_history<H>(
+    rl: &mut Editor<H, FileHistory>,
+    history: &HistorySetup,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    H: rustyline::Helper,
+{
     OpenOptions::new()
         .create(true)
         .append(true)
@@ -37,7 +44,13 @@ pub fn load_history(rl: &mut DefaultEditor, history: &HistorySetup) -> Result<()
     Ok(())
 }
 
-pub fn save_history(rl: &mut DefaultEditor, history: &HistorySetup) -> Result<(), Box<dyn Error>> {
+pub fn save_history<H>(
+    rl: &mut Editor<H, FileHistory>,
+    history: &HistorySetup,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    H: rustyline::Helper,
+{
     // Save the history to the file
     rl.save_history(&history.path)?;
 

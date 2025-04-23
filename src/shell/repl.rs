@@ -1,3 +1,4 @@
+use crate::shell::completion::RynHelper;
 use crate::shell::config::load_config;
 use crate::shell::history::{load_history, save_history, setup_history};
 use crate::shell::parser::parse_and_execute;
@@ -5,16 +6,23 @@ use crate::shell::prompt::parse_prompt;
 use std::io::{self, Write};
 use std::time::Instant;
 
-use rustyline::DefaultEditor;
+use rustyline::Editor;
 use rustyline::config::{ColorMode, Config};
 use rustyline::error::ReadlineError;
+use rustyline::history::FileHistory;
 use std::error::Error;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     setup_ctrlc_handler();
 
-    let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let mut rl = DefaultEditor::with_config(config)?;
+    // Setup rustyline
+    let config = Config::builder()
+        .color_mode(ColorMode::Forced)
+        .completion_type(rustyline::config::CompletionType::List) // maybe circular in config later
+        .build();
+
+    let mut rl = Editor::<RynHelper, FileHistory>::with_config(config)?;
+    rl.set_helper(Some(RynHelper::new()));
 
     let history = setup_history()?;
     load_history(&mut rl, &history)?;
