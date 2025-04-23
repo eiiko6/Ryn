@@ -9,11 +9,21 @@ For now it only supports interactive use.
 - [x] Handling quotes (`""` and `''` are handled the same for now)
 - [x] Prompt configuration
 - [x] Command sequences (`a ; b`)
-- [x] And, Or (`a && b`, `a || b`)
+- [x] Logical operators (`a && b`, `a || b`)
 - [x] Pipes (`a | b | c`)
 - [x] Changing the cursor
 - [x] Aliases
+- [x] Tab path completion
 - [x] Hints
+- [ ] Redirections (`>`, `<`)
+- [ ] Background jobs (`&`)
+- [ ] `Ctrl + Z` handling (currently handled by the parent)
+- [ ] Full job control
+
+### Not planned
+
+- [ ] Scripting
+- [ ] Environment variables
 
 ## Installation
 
