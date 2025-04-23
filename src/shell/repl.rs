@@ -1,4 +1,4 @@
-use crate::shell::completion::RynHelper;
+use crate::shell::completion::CommandHelper;
 use crate::shell::config::load_config;
 use crate::shell::history::{load_history, save_history, setup_history};
 use crate::shell::parser::parse_and_execute;
@@ -21,8 +21,8 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .completion_type(rustyline::config::CompletionType::List) // maybe circular in config later
         .build();
 
-    let mut rl = Editor::<RynHelper, FileHistory>::with_config(config)?;
-    rl.set_helper(Some(RynHelper::new()));
+    let mut rl = Editor::<CommandHelper, FileHistory>::with_config(config)?;
+    rl.set_helper(Some(CommandHelper::new()));
 
     let history = setup_history()?;
     load_history(&mut rl, &history)?;
