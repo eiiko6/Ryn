@@ -13,6 +13,7 @@ For now it only supports interactive use.
 - [x] Pipes (`a | b | c`)
 - [x] Changing the cursor
 - [x] Aliases
+- [x] Hints
 
 ## Installation
 

@@ -1,6 +1,8 @@
 use crate::shell::builtin::handle_builtin;
 use crate::shell::command::{CommandExpr, execute_command, spawn_command};
+use crate::shell::parser::{parse_expr, tokenize};
 use os_pipe::{PipeReader, pipe};
+use std::collections::HashMap;
 use std::process::Stdio;
 
 pub struct EvalResult {
@@ -8,9 +10,21 @@ pub struct EvalResult {
     pub should_exit: bool,
 }
 
-pub fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
+pub fn eval_expr(expr: CommandExpr, aliases: &HashMap<String, String>) -> Option<EvalResult> {
     match expr {
-        CommandExpr::Command(args) => {
+        CommandExpr::Command(mut args) => {
+            // Expand aliases
+            if let Some(alias) = aliases.get(&args[0]) {
+                let mut tokens = tokenize(alias).unwrap_or_default();
+                if let Ok(expr) = parse_expr(&mut tokens) {
+                    if let CommandExpr::Command(expanded_args) = expr {
+                        args.splice(0..1, expanded_args);
+                    } else {
+                        return eval_expr(expr, aliases);
+                    }
+                }
+            }
+
             // Check if it's a built-in command
             if let Some(builtin) = handle_builtin(&args) {
                 return Some(EvalResult {
@@ -32,7 +46,7 @@ pub fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
                 if let Some(EvalResult {
                     success: s,
                     should_exit,
-                }) = eval_expr(expr)
+                }) = eval_expr(expr, aliases)
                 {
                     if !s {
                         success = false; // If any command fails, the whole sequence is considered failed
@@ -54,27 +68,27 @@ pub fn eval_expr(expr: CommandExpr) -> Option<EvalResult> {
             if let Some(EvalResult {
                 success: false,
                 should_exit: false,
-            }) = eval_expr(*lhs)
+            }) = eval_expr(*lhs, aliases)
             {
                 return Some(EvalResult {
                     success: false,
                     should_exit: false,
                 });
             }
-            eval_expr(*rhs)
+            eval_expr(*rhs, aliases)
         }
         CommandExpr::Or(lhs, rhs) => {
             if let Some(EvalResult {
                 success: true,
                 should_exit: false,
-            }) = eval_expr(*lhs)
+            }) = eval_expr(*lhs, aliases)
             {
                 return Some(EvalResult {
                     success: true,
                     should_exit: false,
                 });
             }
-            eval_expr(*rhs)
+            eval_expr(*rhs, aliases)
         }
         CommandExpr::Pipeline(cmds) => {
             let mut processes = Vec::new();
