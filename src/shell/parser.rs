@@ -1,5 +1,6 @@
 use crate::shell::command::CommandExpr;
 use crate::shell::eval::{EvalResult, eval_expr};
+use dirs::home_dir;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -81,6 +82,20 @@ pub fn tokenize(input: &str) -> Result<Vec<String>, ParseError> {
                     current.clear();
                 }
                 tokens.push(c.to_string());
+            }
+            '~' if !in_double_quotes && !in_single_quotes => {
+                // Only expand if at the start of a token
+                if current.is_empty() {
+                    if let Some(home_dir) = home_dir() {
+                        current.push_str(home_dir.to_str().unwrap_or_default());
+                    } else {
+                        return Err(ParseError::UnexpectedOperator(
+                            "could not resolve home directory".to_string(),
+                        ));
+                    }
+                } else {
+                    current.push(c);
+                }
             }
             _ => current.push(c),
         }
