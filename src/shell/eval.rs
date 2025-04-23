@@ -16,11 +16,11 @@ pub fn eval_expr(expr: CommandExpr, aliases: &HashMap<String, String>) -> Option
             // Expand aliases
             if let Some(alias) = aliases.get(&args[0]) {
                 let mut tokens = tokenize(alias).unwrap_or_default();
-                if let Ok(expr) = parse_expr(&mut tokens) {
-                    if let CommandExpr::Command(expanded_args) = expr {
+                if let Ok(parsed) = parse_expr(&mut tokens) {
+                    if let CommandExpr::Command(expanded_args) = parsed {
                         args.splice(0..1, expanded_args);
                     } else {
-                        return eval_expr(expr, aliases);
+                        return eval_expr(parsed, aliases);
                     }
                 }
             }
@@ -95,14 +95,26 @@ pub fn eval_expr(expr: CommandExpr, aliases: &HashMap<String, String>) -> Option
             let mut prev_reader: Option<PipeReader> = None;
 
             for (i, expr) in cmds.iter().enumerate() {
-                let args = if let CommandExpr::Command(args) = expr {
-                    args
+                let mut args = if let CommandExpr::Command(args) = expr {
+                    args.clone()
                 } else {
                     return Some(EvalResult {
                         success: false,
                         should_exit: false,
                     });
                 };
+
+                // Expand aliases
+                if let Some(alias) = aliases.get(&args[0]) {
+                    let mut tokens = tokenize(alias).unwrap_or_default();
+                    if let Ok(parsed) = parse_expr(&mut tokens) {
+                        if let CommandExpr::Command(expanded_args) = parsed {
+                            args.splice(0..1, expanded_args);
+                        } else {
+                            return eval_expr(parsed, aliases);
+                        }
+                    }
+                }
 
                 let stdin = if let Some(reader) = prev_reader.take() {
                     Stdio::from(reader)
@@ -118,7 +130,7 @@ pub fn eval_expr(expr: CommandExpr, aliases: &HashMap<String, String>) -> Option
                     Stdio::inherit()
                 };
 
-                match spawn_command(args, stdin, stdout, None) {
+                match spawn_command(&args, stdin, stdout, None) {
                     Ok(child) => processes.push(child),
                     Err(err) => {
                         eprintln!("Failed to spawn command '{}': {}", args[0], err);
